@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>خزنة الأوامر الفاخرة | Prompt & Command Vault</title>
+    <!-- استدعاء Tailwind CSS للتصميم العصري -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- استدعاء خط Tajawal و Cairo لجمالية الخط العربي -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <!-- أيقونات FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* تخصيص شريط التمرير */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569; 
+        }
+        
+        /* تأثيرات زجاجية فاخرة */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(139, 92, 246, 0.4);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(139, 92, 246, 0.2);
+        }
+
+        /* تدرجات لونية للبطاقات */
+        .theme-purple { border-top: 4px solid #a855f7; }
+        .theme-cyan { border-top: 4px solid #06b6d4; }
+        .theme-emerald { border-top: 4px solid #10b981; }
+        .theme-rose { border-top: 4px solid #f43f5e; }
+        .theme-amber { border-top: 4px solid #f59e0b; }
+
+        .badge-purple { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.3); }
+        .badge-cyan { background: rgba(6, 182, 212, 0.15); color: #67e8f9; border: 1px solid rgba(6, 182, 212, 0.3); }
+        .badge-emerald { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-rose { background: rgba(244, 63, 94, 0.15); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.3); }
+        .badge-amber { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans selection:bg-purple-500 selection:text-white overflow-x-hidden">
+
+    <!-- خلفية جمالية مضيئة -->
+    <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div class="absolute -top-40 -right-40 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl"></div>
+        <div class="absolute top-1/3 -left-40 w-96 h-96 bg-cyan-600/15 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-40 right-1/3 w-96 h-96 bg-emerald-600/15 rounded-full blur-3xl"></div>
+    </div>
+
+    <!-- المحتوى الرئيسي -->
+    <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- الشريط العلوي (Header) -->
+        <header class="glass-panel rounded-2xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-4 shadow-2xl">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 via-indigo-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                    <i class="fa-solid fa-terminal text-2xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-black bg-clip-text text-transparent bg-gradient-to-l from-white via-purple-200 to-cyan-200">
+                        خزنة الأوامر الفاخرة
+                    </h1>
+                    <p class="text-slate-400 text-sm mt-1">مساحتك الذكية لحفظ الأوامر، الأمثلة، والملفات المرفقة</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+                <!-- مؤشر حالة الاتصال -->
+                <div id="connectionStatus" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-400">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse" id="statusDot"></span>
+                    <span id="statusText">جاري الاتصال...</span>
+                </div>
+
+                <!-- زر إضافة أمر جديد -->
+                <button onclick="openModal()" class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-purple-600/30 transition-all transform hover:scale-105 active:scale-95">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>إضافة أمر جديد</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- شريط التحكم: القائمة المنسدلة للأوامر + البحث + الفلترة -->
+        <section class="glass-panel rounded-2xl p-5 mb-8 shadow-xl">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                
+                <!-- القائمة المنسدلة للوصول السريع لأي أمر -->
+                <div class="md:col-span-5 relative">
+                    <label class="block text-xs font-semibold text-purple-300 mb-1.5 mr-1">
+                        <i class="fa-solid fa-list-ul ml-1"></i> القائمة المنسدلة السريعة للأوامر
+                    </label>
+                    <div class="relative">
+                        <select id="quickCommandDropdown" onchange="handleDropdownSelect(this.value)" class="w-full appearance-none bg-slate-900/90 border border-slate-700 hover:border-purple-500 text-white rounded-xl py-3 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors cursor-pointer font-semibold">
+                            <option value="ALL">📂 عرض جميع البطاقات المحفوظة (الكل)</option>
+                            <!-- سيتم تعبئة الأوامر هنا ديناميكياً -->
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 text-purple-400">
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- حقل البحث -->
+                <div class="md:col-span-4">
+                    <label class="block text-xs font-semibold text-cyan-300 mb-1.5 mr-1">
+                        <i class="fa-solid fa-magnifying-glass ml-1"></i> بحث في الأوامر
+                    </label>
+                    <div class="relative">
+                        <input type="text" id="searchInput" oninput="filterCommands()" placeholder="ابحث بالاسم، المحتوى، أو التصنيف..." class="w-full bg-slate-900/90 border border-slate-700 focus:border-cyan-500 text-white rounded-xl py-3 px-4 pl-10 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors">
+                        <i class="fa-solid fa-search absolute left-3.5 top-3.5 text-slate-500"></i>
+                    </div>
+                </div>
+
+                <!-- فلترة حسب اللون / التصنيف -->
+                <div class="md:col-span-3">
+                    <label class="block text-xs font-semibold text-emerald-300 mb-1.5 mr-1">
+                        <i class="fa-solid fa-palette ml-1"></i> تصفية حسب اللون
+                    </label>
+                    <select id="colorFilter" onchange="filterCommands()" class="w-full bg-slate-900/90 border border-slate-700 focus:border-emerald-500 text-white rounded-xl py-3 px-4 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors cursor-pointer">
+                        <option value="ALL">🎨 جميع الألوان</option>
+                        <option value="purple">🟣 بنفسجي ملكي</option>
+                        <option value="cyan">🔵 سماوي تقني</option>
+                        <option value="emerald">🟢 زمردي إبداعي</option>
+                        <option value="rose">🔴 وردي مميز</option>
+                        <option value="amber">🟠 ذهبي هام</option>
+                    </select>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- قسم عرض البطاقة المحددة من القائمة المنسدلة (يظهر عند اختيار أمر محدد) -->
+        <div id="focusedCardContainer" class="hidden mb-10">
+            <div class="flex items-center justify-between mb-3 px-2">
+                <span class="text-sm font-bold text-purple-300 flex items-center gap-2">
+                    <i class="fa-solid fa-eye"></i> معاينة الأمر المحدد من القائمة المنسدلة
+                </span>
+                <button onclick="resetSelection()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                    <i class="fa-solid fa-grid"></i> عرض كل البطاقات
+                </button>
+            </div>
+            <div id="focusedCardSlot"></div>
+        </div>
+
+        <!-- شبكة البطاقات (Cards Grid) -->
+        <main id="cardsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- سيتم عرض البطاقات هنا -->
+        </main>
+
+        <!-- حالة عدم وجود بيانات -->
+        <div id="emptyState" class="hidden glass-panel rounded-3xl p-12 text-center my-8">
+            <div class="w-20 h-20 rounded-full bg-slate-800/80 mx-auto flex items-center justify-center mb-4 border border-slate-700">
+                <i class="fa-solid fa-folder-open text-3xl text-purple-400"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">خزنتك فارغة حالياً!</h3>
+            <p class="text-slate-400 max-w-md mx-auto mb-6">ابدأ بإضافة أوامرك البرمجية أو أوامر الذكاء الاصطناعي المهمة، وارفق معها ملفات الأمثلة للرجوع إليها في أي وقت.</p>
+            <button onclick="openModal()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2.5 px-6 rounded-xl shadow-lg transition-all">
+                <i class="fa-solid fa-plus ml-1"></i> أضف أول أمر الآن
+            </button>
+        </div>
+
+    </div>
+
+    <!-- نافذة الإضافة والتعديل (Modal) -->
+    <div id="commandModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+        <div class="glass-panel bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-2xl p-6 sm:p-8 shadow-2xl transform transition-all my-8">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+                <h2 id="modalTitle" class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i>
+                    <span>إضافة أمر جديد</span>
+                </h2>
+                <button onclick="closeModal()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form id="commandForm" onsubmit="saveCommand(event)" class="space-y-5">
+                <input type="hidden" id="commandId">
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- اسم الأمر -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-300 mb-1.5">اسم الأمر <span class="text-rose-500">*</span></label>
+                        <input type="text" id="cmdName" required placeholder="مثال: برومبت تصميم واجهات..." class="w-full bg-slate-950/80 border border-slate-700 focus:border-purple-500 rounded-xl py-2.5 px-4 text-white focus:outline-none">
+                    </div>
+
+                    <!-- التصنيف / الوسم -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-300 mb-1.5">التصنيف (اختياري)</label>
+                        <input type="text" id="cmdCategory" placeholder="مثال: برمجة، تصميم، Midjourney..." class="w-full bg-slate-950/80 border border-slate-700 focus:border-purple-500 rounded-xl py-2.5 px-4 text-white focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- اختيار لون البطاقة -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-300 mb-2">لون البطاقة المميز</label>
+                    <div class="flex flex-wrap gap-3">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="cmdTheme" value="purple" checked class="peer sr-only">
+                            <div class="px-4 py-2 rounded-xl bg-slate-950 border border-slate-700 peer-checked:border-purple-500 peer-checked:bg-purple-500/20 text-purple-300 text-sm font-semibold flex items-center gap-2 transition-all">
+                                <span class="w-3 h-3 rounded-full bg-purple-500"></span> بنفسجي
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="cmdTheme" value="cyan" class="peer sr-only">
+                            <div class="px-4 py-2 rounded-xl bg-slate-950 border border-slate-700 peer-checked:border-cyan-500 peer-checked:bg-cyan-500/20 text-cyan-300 text-sm font-semibold flex items-center gap-2 transition-all">
+                                <span class="w-3 h-3 rounded-full bg-cyan-500"></span> سماوي
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="cmdTheme" value="emerald" class="peer sr-only">
+                            <div class="px-4 py-2 rounded-xl bg-slate-950 border border-slate-700 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/20 text-emerald-300 text-sm font-semibold flex items-center gap-2 transition-all">
+                                <span class="w-3 h-3 rounded-full bg-emerald-500"></span> زمردي
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="cmdTheme" value="rose" class="peer sr-only">
+                            <div class="px-4 py-2 rounded-xl bg-slate-950 border border-slate-700 peer-checked:border-rose-500 peer-checked:bg-rose-500/20 text-rose-300 text-sm font-semibold flex items-center gap-2 transition-all">
+                                <span class="w-3 h-3 rounded-full bg-rose-500"></span> وردي
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="cmdTheme" value="amber" class="peer sr-only">
+                            <div class="px-4 py-2 rounded-xl bg-slate-950 border border-slate-700 peer-checked:border-amber-500 peer-checked:bg-amber-500/20 text-amber-300 text-sm font-semibold flex items-center gap-2 transition-all">
+                                <span class="w-3 h-3 rounded-full bg-amber-500"></span> ذهبي
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- نص الأمر (لصق الأمر) -->
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="block text-sm font-semibold text-slate-300">نص الأمر (الصق الأمر هنا) <span class="text-rose-500">*</span></label>
+                        <button type="button" onclick="pasteFromClipboard()" class="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+                            <i class="fa-regular fa-paste"></i> لصق من الحافظة
+                        </button>
+                    </div>
+                    <textarea id="cmdText" required rows="5" placeholder="الصق الأمر البرمجي أو النصي هنا..." class="w-full bg-slate-950/90 border border-slate-700 focus:border-purple-500 rounded-xl p-4 text-slate-100 font-mono text-sm focus:outline-none leading-relaxed"></textarea>
+                </div>
+
+                <!-- رفع ملف المثال -->
+                <div class="bg-slate-950/60 border border-dashed border-slate-700 rounded-2xl p-4">
+                    <label class="block text-sm font-semibold text-slate-300 mb-2">
+                        <i class="fa-solid fa-paperclip text-purple-400 ml-1"></i> إرفاق ملف كمثال (صورة، ملف نصي، كود، PDF...)
+                    </label>
+                    <div class="flex flex-col sm:flex-row items-center gap-3">
+                        <label class="w-full sm:w-auto cursor-pointer bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold py-2.5 px-4 rounded-xl border border-slate-600 transition-colors text-center">
+                            <i class="fa-solid fa-cloud-arrow-up ml-1"></i> اختر ملفاً من جهازك
+                            <input type="file" id="cmdFile" onchange="handleFileSelect(event)" class="hidden">
+                        </label>
+                        <span id="fileNameDisplay" class="text-xs text-slate-400 truncate max-w-xs">لم يتم اختيار ملف (الحد الأقصى 800 كيلوبايت)</span>
+                        <button type="button" id="removeFileBtn" onclick="clearSelectedFile()" class="hidden text-xs text-rose-400 hover:text-rose-300">
+                            <i class="fa-solid fa-trash"></i> إزالة
+                        </button>
+                    </div>
+                    <!-- معاينة مصغرة للملف المرفوع -->
+                    <div id="filePreviewContainer" class="mt-3 hidden"></div>
+                </div>
+
+                <!-- أزرار الحفظ والإلغاء -->
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                    <button type="button" onclick="closeModal()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition-colors">
+                        إلغاء
+                    </button>
+                    <button type="submit" id="saveBtn" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold shadow-lg shadow-purple-600/30 transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>حفظ الأمر</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نافذة عرض تفاصيل الأمر كاملة (View Details Modal) -->
+    <div id="viewModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+        <div id="viewModalContent" class="glass-panel bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-3xl p-6 sm:p-8 shadow-2xl my-8">
+            <!-- يتم تعبئة التفاصيل ديناميكياً -->
+        </div>
+    </div>
+
+    <!-- نافذة تأكيد الحذف المخصصة (بدلاً من confirm) -->
+    <div id="deleteConfirmModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div class="glass-panel bg-slate-900 border border-rose-500/30 rounded-3xl w-full max-w-md p-6 text-center shadow-2xl">
+            <div class="w-16 h-16 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto mb-4 border border-rose-500/20">
+                <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white mb-2">تأكيد حذف الأمر</h3>
+            <p class="text-slate-400 text-sm mb-6">هل أنت متأكد من رغبتك في حذف هذا الأمر نهائياً؟ لا يمكن التراجع عن هذه الخطوة.</p>
+            <div class="flex justify-center gap-3">
+                <button onclick="closeDeleteModal()" class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition-colors">
+                    تراجع
+                </button>
+                <button id="confirmDeleteBtn" class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-lg shadow-rose-600/30 transition-colors">
+                    نعم، احذف الأمر
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- إشعار منبثق (Toast Notification) -->
+    <div id="toast" class="fixed bottom-6 left-6 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="glass-panel bg-slate-900 border border-slate-700 text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3">
+            <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+            <span id="toastMessage" class="text-sm font-semibold">تمت العملية بنجاح</span>
+        </div>
+    </div>
+
+    <!-- سكربت Firebase والمنطق البرمجي للتطبيق -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // تهيئة إعدادات Firebase (يستخدم إعدادات البيئة المتاحة أو إعدادات مشروعك من الصورة)
+        const userProvidedConfig = {
+            apiKey: "AIzaSyAmy6TYCiXdhAjtv9lvyATUYFq508sAuhY",
+            authDomain: "aoamre-aaceb.firebaseapp.com",
+            projectId: "aoamre-aaceb",
+            storageBucket: "aoamre-aaceb.firebasestorage.app",
+            messagingSenderId: "391874561213",
+            appId: "1:391874561213:web:0f2a277c132508e396e3d4",
+            measurementId: "G-RSGHWZEVLP"
+        };
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : userProvidedConfig;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'aoamre-vault-app';
+
+        // تشغيل التطبيق
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // متغيرات الحالة
+        let currentUser = null;
+        let allCommands = [];
+        let currentFileBase64 = null;
+        let currentFileName = null;
+        let currentFileType = null;
+        let commandToDeleteId = null;
+
+        // دالة إظهار الإشعارات
+        window.showToast = function(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMessage');
+
+            msg.textContent = message;
+            if (type === 'success') {
+                icon.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
+            } else if (type === 'error') {
+                icon.className = 'fa-solid fa-circle-xmark text-rose-400 text-lg';
+            } else {
+                icon.className = 'fa-solid fa-circle-info text-cyan-400 text-lg';
+            }
+
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 3500);
+        };
+
+        // تحديث حالة الاتصال في الواجهة
+        function updateConnectionUI(connected, text) {
+            const dot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            statusText.textContent = text;
+            if (connected) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]';
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-rose-500';
+            }
+        }
+
+        // المصادقة وجلب البيانات
+        async function initAuthAndData() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth Error:", error);
+                updateConnectionUI(false, "خطأ في الاتصال (تحقق من صلاحيات القواعد)");
+                showToast("تعذر الاتصال بقاعدة البيانات. تأكد من تفعيل المصادقة المجهولة وقواعد Firestore.", "error");
+            }
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                updateConnectionUI(true, "متصل بالسحابة");
+                listenToCommands();
+            } else {
+                currentUser = null;
+                updateConnectionUI(false, "غير متصل");
+            }
+        });
+
+        // الاستماع للتغييرات في قاعدة البيانات
+        function listenToCommands() {
+            if (!currentUser) return;
+            // الالتزام بالمسار الصحيح لقاعدة البيانات
+            const commandsRef = collection(db, 'artifacts', appId, 'public', 'data', 'commands');
+
+            onSnapshot(commandsRef, (snapshot) => {
+                allCommands = [];
+                snapshot.forEach((docSnap) => {
+                    allCommands.push({ id: docSnap.id, ...docSnap.data() });
+                });
+
+                // ترتيب الأوامر من الأحدث للأقدم في الذاكرة
+                allCommands.sort((a, b) => (b.createdAtTimestamp || 0) - (a.createdAtTimestamp || 0));
+
+                populateDropdown();
+                filterCommands();
+            }, (error) => {
+                console.error("Firestore Snapshot Error:", error);
+                updateConnectionUI(false, "تم رفض الوصول (Rules)");
+                showToast("تنبيه: يرجى تحديث قواعد Firestore للسماح بالقراءة والكتابة.", "error");
+            });
+        }
+
+        // تعبئة القائمة المنسدلة للأوامر
+        function populateDropdown() {
+            const dropdown = document.getElementById('quickCommandDropdown');
+            const currentVal = dropdown.value;
+            
+            dropdown.innerHTML = `<option value="ALL">📂 عرض جميع البطاقات المحفوظة (${allCommands.length})</option>`;
+            
+            allCommands.forEach(cmd => {
+                const option = document.createElement('option');
+                option.value = cmd.id;
+                const catText = cmd.category ? `[${cmd.category}] ` : '';
+                option.textContent = `⚡ ${catText}${cmd.name}`;
+                dropdown.appendChild(option);
+            });
+
+            if (allCommands.some(c => c.id === currentVal)) {
+                dropdown.value = currentVal;
+            } else {
+                dropdown.value = 'ALL';
+                document.getElementById('focusedCardContainer').classList.add('hidden');
+            }
+        }
+
+        // التعامل مع اختيار أمر من القائمة المنسدلة
+        window.handleDropdownSelect = function(selectedId) {
+            const focusedContainer = document.getElementById('focusedCardContainer');
+            const focusedSlot = document.getElementById('focusedCardSlot');
+            const cardsGrid = document.getElementById('cardsGrid');
+
+            if (selectedId === 'ALL') {
+                focusedContainer.classList.add('hidden');
+                cardsGrid.classList.remove('hidden');
+                filterCommands();
+            } else {
+                const selectedCmd = allCommands.find(c => c.id === selectedId);
+                if (selectedCmd) {
+                    focusedSlot.innerHTML = createCardHTML(selectedCmd, true);
+                    focusedContainer.classList.remove('hidden');
+                    cardsGrid.classList.add('hidden');
+                }
+            }
+        };
+
+        window.resetSelection = function() {
+            document.getElementById('quickCommandDropdown').value = 'ALL';
+            handleDropdownSelect('ALL');
+        };
+
+        // تصفية وعرض البطاقات
+        window.filterCommands = function() {
+            const searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+            const colorFilter = document.getElementById('colorFilter').value;
+            const dropdownVal = document.getElementById('quickCommandDropdown').value;
+
+            if (dropdownVal !== 'ALL') {
+                handleDropdownSelect(dropdownVal);
+                return;
+            }
+
+            const filtered = allCommands.filter(cmd => {
+                const matchesSearch = 
+                    (cmd.name && cmd.name.toLowerCase().includes(searchQuery)) ||
+                    (cmd.text && cmd.text.toLowerCase().includes(searchQuery)) ||
+                    (cmd.category && cmd.category.toLowerCase().includes(searchQuery));
+                
+                const matchesColor = colorFilter === 'ALL' || cmd.theme === colorFilter;
+                return matchesSearch && matchesColor;
+            });
+
+            renderCards(filtered);
+        };
+
+        // رسم البطاقات في الشبكة
+        function renderCards(commandsList) {
+            const grid = document.getElementById('cardsGrid');
+            const emptyState = document.getElementById('emptyState');
+
+            if (commandsList.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            grid.innerHTML = commandsList.map(cmd => createCardHTML(cmd, false)).join('');
+        }
+
+        // بناء كود HTML للبطاقة الواحدة
+        function createCardHTML(cmd, isFocused = false) {
+            const theme = cmd.theme || 'purple';
+            const categoryBadge = cmd.category 
+                ? `<span class="text-xs font-bold px-3 py-1 rounded-full badge-${theme}">${escapeHTML(cmd.category)}</span>` 
+                : `<span class="text-xs font-bold px-3 py-1 rounded-full badge-${theme}">أمر محفوظ</span>`;
+
+            // عرض معاينة الملف المرفق إن وجد
+            let fileSection = '';
+            if (cmd.fileData && cmd.fileName) {
+                const isImage = cmd.fileType && cmd.fileType.startsWith('image/');
+                if (isImage) {
+                    fileSection = `
+                        <div class="mt-4 bg-slate-950/60 rounded-xl p-3 border border-slate-800/80">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs text-slate-400 flex items-center gap-1.5 truncate">
+                                    <i class="fa-regular fa-image text-purple-400"></i> ${escapeHTML(cmd.fileName)}
+                                </span>
+                                <a href="${cmd.fileData}" download="${escapeHTML(cmd.fileName)}" class="text-xs text-cyan-400 hover:underline flex items-center gap-1">
+                                    <i class="fa-solid fa-download"></i> تحميل
+                                </a>
+                            </div>
+                            <img src="${cmd.fileData}" alt="مثال مرفق" onclick="openViewModal('${cmd.id}')" class="w-full ${isFocused ? 'max-h-96' : 'h-36'} object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity border border-slate-800">
+                        </div>
+                    `;
+                } else {
+                    fileSection = `
+                        <div class="mt-4 bg-slate-950/60 rounded-xl p-3 border border-slate-800/80 flex items-center justify-between">
+                            <div class="flex items-center gap-2.5 truncate">
+                                <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-cyan-400 shrink-0">
+                                    <i class="fa-solid fa-file-code"></i>
+                                </div>
+                                <div class="truncate">
+                                    <p class="text-xs font-bold text-slate-200 truncate">${escapeHTML(cmd.fileName)}</p>
+                                    <p class="text-[11px] text-slate-500">ملف مثال مرفق</p>
+                                </div>
+                            </div>
+                            <a href="${cmd.fileData}" download="${escapeHTML(cmd.fileName)}" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-cyan-300 font-semibold transition-colors shrink-0">
+                                <i class="fa-solid fa-download ml-1"></i> تحميل
+                            </a>
+                        </div>
+                    `;
+                }
+            }
+
+            const updatedBadge = cmd.updatedAtFormatted 
+                ? `<div class="text-[11px] text-amber-400/90 mt-1"><i class="fa-solid fa-pen-to-square ml-1"></i> آخر تعديل: ${cmd.updatedAtFormatted}</div>` 
+                : '';
+
+            return `
+                <article class="glass-card theme-${theme} rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+                    <div>
+                        <!-- رأس البطاقة -->
+                        <div class="flex items-start justify-between gap-3 mb-3">
+                            <div>
+                                ${categoryBadge}
+                                <h3 class="text-lg sm:text-xl font-bold text-white mt-2.5 leading-snug cursor-pointer hover:text-purple-300 transition-colors" onclick="openViewModal('${cmd.id}')">
+                                    ${escapeHTML(cmd.name)}
+                                </h3>
+                            </div>
+                            <button onclick="copyCommandText('${cmd.id}')" title="نسخ الأمر" class="w-10 h-10 rounded-xl bg-slate-800/90 hover:bg-purple-600 text-slate-300 hover:text-white flex items-center justify-center transition-all shrink-0 shadow-md">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+
+                        <!-- صندوق نص الأمر -->
+                        <div class="relative group mt-3">
+                            <pre class="bg-slate-950/90 border border-slate-800/90 rounded-xl p-3.5 text-slate-300 font-mono text-xs sm:text-sm overflow-x-auto ${isFocused ? 'max-h-96' : 'max-h-32'} whitespace-pre-wrap leading-relaxed select-all">${escapeHTML(cmd.text)}</pre>
+                        </div>
+
+                        <!-- قسم الملف المرفق -->
+                        ${fileSection}
+                    </div>
+
+                    <!-- تذييل البطاقة: التاريخ والوقت + أزرار التحكم -->
+                    <div class="mt-5 pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="text-xs text-slate-400">
+                            <div class="flex items-center gap-1.5">
+                                <i class="fa-regular fa-clock text-purple-400"></i>
+                                <span>أُضيف: ${cmd.createdAtFormatted || 'غير محدد'}</span>
+                            </div>
+                            ${updatedBadge}
+                        </div>
+
+                        <div class="flex items-center gap-2 self-end sm:self-auto">
+                            <button onclick="openViewModal('${cmd.id}')" title="عرض كامل التفاصيل" class="p-2 rounded-lg bg-slate-800/80 hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 transition-colors">
+                                <i class="fa-solid fa-expand"></i>
+                            </button>
+                            <button onclick="editCommand('${cmd.id}')" title="تعديل الأمر" class="p-2 rounded-lg bg-slate-800/80 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 transition-colors">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button onclick="promptDelete('${cmd.id}')" title="حذف الأمر" class="p-2 rounded-lg bg-slate-800/80 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 transition-colors">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                </article>
+            `;
+        }
+
+        // نسخ نص الأمر للحافظة
+        window.copyCommandText = function(id) {
+            const cmd = allCommands.find(c => c.id === id);
+            if (!cmd) return;
+
+            const textarea = document.createElement('textarea');
+            textarea.value = cmd.text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast('تم نسخ الأمر إلى الحافظة بنجاح!');
+            } catch (err) {
+                showToast('تعذر النسخ، يرجى التحديد والنسخ يدوياً', 'error');
+            }
+            document.body.removeChild(textarea);
+        };
+
+        // لصق من الحافظة داخل حقل الإدخال
+        window.pasteFromClipboard = async function() {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById('cmdText').value = text;
+                showToast('تم اللصق من الحافظة');
+            } catch (err) {
+                showToast('يرجى استخدام اختصار Ctrl+V أو اللصق المباشر في المربع', 'info');
+            }
+        };
+
+        // معالجة اختيار الملف وتحويله
+        window.handleFileSelect = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // التحقق من الحجم (الحد الأقصى 800KB لتناسب حدود Firestore 1MB)
+            if (file.size > 800 * 1024) {
+                showToast('حجم الملف كبير جداً! الحد الأقصى المسموح به هو 800 كيلوبايت.', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentFileBase64 = e.target.result;
+                currentFileName = file.name;
+                currentFileType = file.type;
+
+                document.getElementById('fileNameDisplay').textContent = file.name;
+                document.getElementById('removeFileBtn').classList.remove('hidden');
+
+                const preview = document.getElementById('filePreviewContainer');
+                if (file.type.startsWith('image/')) {
+                    preview.innerHTML = `<img src="${currentFileBase64}" class="h-24 rounded-lg border border-slate-700 object-cover">`;
+                    preview.classList.remove('hidden');
+                } else {
+                    preview.innerHTML = `<div class="text-xs text-emerald-400"><i class="fa-solid fa-check-circle ml-1"></i> الملف جاهز للرفع مع الأمر</div>`;
+                    preview.classList.remove('hidden');
+                }
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.clearSelectedFile = function() {
+            currentFileBase64 = null;
+            currentFileName = null;
+            currentFileType = null;
+            document.getElementById('cmdFile').value = '';
+            document.getElementById('fileNameDisplay').textContent = 'لم يتم اختيار ملف (الحد الأقصى 800 كيلوبايت)';
+            document.getElementById('removeFileBtn').classList.add('hidden');
+            document.getElementById('filePreviewContainer').classList.add('hidden');
+            document.getElementById('filePreviewContainer').innerHTML = '';
+        };
+
+        // تنسيق التاريخ والوقت الحالي بدقة
+        function getFormattedDateTime() {
+            const now = new Date();
+            const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+            const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: true };
+            const dateStr = now.toLocaleDateString('ar-SA', dateOptions);
+            const timeStr = now.toLocaleTimeString('ar-SA', timeOptions);
+            return `${dateStr} • ${timeStr}`;
+        }
+
+        // فتح نافذة الإضافة
+        window.openModal = function() {
+            document.getElementById('commandForm').reset();
+            document.getElementById('commandId').value = '';
+            clearSelectedFile();
+            document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> <span>إضافة أمر جديد</span>';
+            document.getElementById('saveBtn').innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>حفظ الأمر</span>';
+            
+            const modal = document.getElementById('commandModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeModal = function() {
+            const modal = document.getElementById('commandModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        // فتح نافذة التعديل وتعبئة البيانات
+        window.editCommand = function(id) {
+            const cmd = allCommands.find(c => c.id === id);
+            if (!cmd) return;
+
+            document.getElementById('commandId').value = cmd.id;
+            document.getElementById('cmdName').value = cmd.name || '';
+            document.getElementById('cmdCategory').value = cmd.category || '';
+            document.getElementById('cmdText').value = cmd.text || '';
+
+            const themeRadio = document.querySelector(`input[name="cmdTheme"][value="${cmd.theme || 'purple'}"]`);
+            if (themeRadio) themeRadio.checked = true;
+
+            if (cmd.fileData && cmd.fileName) {
+                currentFileBase64 = cmd.fileData;
+                currentFileName = cmd.fileName;
+                currentFileType = cmd.fileType;
+                document.getElementById('fileNameDisplay').textContent = cmd.fileName;
+                document.getElementById('removeFileBtn').classList.remove('hidden');
+                
+                const preview = document.getElementById('filePreviewContainer');
+                if (cmd.fileType && cmd.fileType.startsWith('image/')) {
+                    preview.innerHTML = `<img src="${cmd.fileData}" class="h-24 rounded-lg border border-slate-700 object-cover">`;
+                    preview.classList.remove('hidden');
+                }
+            } else {
+                clearSelectedFile();
+            }
+
+            document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-amber-400"></i> <span>تعديل الأمر</span>';
+            document.getElementById('saveBtn').innerHTML = '<i class="fa-solid fa-check"></i> <span>حفظ التعديلات</span>';
+
+            const modal = document.getElementById('commandModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        // حفظ أو تحديث الأمر في Firestore
+        window.saveCommand = async function(event) {
+            event.preventDefault();
+            if (!currentUser) {
+                showToast('جاري الاتصال بقاعدة البيانات، يرجى المحاولة بعد ثوانٍ...', 'error');
+                return;
+            }
+
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>جاري الحفظ...</span>';
+
+            const id = document.getElementById('commandId').value;
+            const name = document.getElementById('cmdName').value.trim();
+            const category = document.getElementById('cmdCategory').value.trim();
+            const text = document.getElementById('cmdText').value;
+            const theme = document.querySelector('input[name="cmdTheme"]:checked').value;
+
+            const commandsRef = collection(db, 'artifacts', appId, 'public', 'data', 'commands');
+
+            try {
+                if (id) {
+                    // تحديث أمر موجود
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'commands', id);
+                    await updateDoc(docRef, {
+                        name,
+                        category,
+                        text,
+                        theme,
+                        fileData: currentFileBase64,
+                        fileName: currentFileName,
+                        fileType: currentFileType,
+                        updatedAtFormatted: getFormattedDateTime(),
+                        updatedAtTimestamp: Date.now()
+                    });
+                    showToast('تم تحديث الأمر بنجاح!');
+                } else {
+                    // إضافة أمر جديد
+                    await addDoc(commandsRef, {
+                        name,
+                        category,
+                        text,
+                        theme,
+                        fileData: currentFileBase64,
+                        fileName: currentFileName,
+                        fileType: currentFileType,
+                        createdAtFormatted: getFormattedDateTime(),
+                        createdAtTimestamp: Date.now(),
+                        authorId: currentUser.uid
+                    });
+                    showToast('تم إضافة الأمر وحفظه في السحابة!');
+                }
+                closeModal();
+            } catch (error) {
+                console.error("Save Error:", error);
+                showToast('حدث خطأ أثناء الحفظ. تأكد من صلاحيات قاعدة البيانات.', 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>حفظ الأمر</span>';
+            }
+        };
+
+        // نافذة تأكيد الحذف
+        window.promptDelete = function(id) {
+            commandToDeleteId = id;
+            const modal = document.getElementById('deleteConfirmModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeDeleteModal = function() {
+            commandToDeleteId = null;
+            const modal = document.getElementById('deleteConfirmModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+            if (!commandToDeleteId || !currentUser) return;
+            const btn = document.getElementById('confirmDeleteBtn');
+            btn.disabled = true;
+            btn.textContent = 'جاري الحذف...';
+
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'commands', commandToDeleteId);
+                await deleteDoc(docRef);
+                showToast('تم حذف الأمر نهائياً');
+                closeDeleteModal();
+            } catch (error) {
+                console.error("Delete Error:", error);
+                showToast('حدث خطأ أثناء الحذف', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'نعم، احذف الأمر';
+            }
+        });
+
+        // نافذة عرض كامل تفاصيل الأمر
+        window.openViewModal = function(id) {
+            const cmd = allCommands.find(c => c.id === id);
+            if (!cmd) return;
+
+            const theme = cmd.theme || 'purple';
+            let attachmentHTML = '';
+            if (cmd.fileData && cmd.fileName) {
+                const isImage = cmd.fileType && cmd.fileType.startsWith('image/');
+                attachmentHTML = `
+                    <div class="mt-6 bg-slate-950/80 border border-slate-800 rounded-2xl p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                                <i class="fa-solid fa-paperclip text-purple-400"></i> الملف المرفق كمثال: ${escapeHTML(cmd.fileName)}
+                            </span>
+                            <a href="${cmd.fileData}" download="${escapeHTML(cmd.fileName)}" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-colors">
+                                <i class="fa-solid fa-download ml-1"></i> تحميل الملف
+                            </a>
+                        </div>
+                        ${isImage ? `<img src="${cmd.fileData}" class="w-full max-h-[500px] object-contain rounded-xl bg-slate-900 border border-slate-800">` : ''}
+                    </div>
+                `;
+            }
+
+            const content = `
+                <div class="flex items-start justify-between border-b border-slate-800 pb-4 mb-5">
+                    <div>
+                        <span class="text-xs font-bold px-3 py-1 rounded-full badge-${theme}">${escapeHTML(cmd.category || 'أمر محفوظ')}</span>
+                        <h2 class="text-2xl font-black text-white mt-2">${escapeHTML(cmd.name)}</h2>
+                        <div class="flex flex-wrap gap-4 text-xs text-slate-400 mt-2">
+                            <span><i class="fa-regular fa-calendar-plus text-purple-400 ml-1"></i> الإضافة: ${cmd.createdAtFormatted}</span>
+                            ${cmd.updatedAtFormatted ? `<span><i class="fa-solid fa-clock-rotate-left text-amber-400 ml-1"></i> التعديل: ${cmd.updatedAtFormatted}</span>` : ''}
+                        </div>
+                    </div>
+                    <button onclick="closeViewModal()" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-bold text-slate-300">نص الأمر الكامل:</span>
+                        <button onclick="copyCommandText('${cmd.id}')" class="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors">
+                            <i class="fa-regular fa-copy"></i> نسخ النص
+                        </button>
+                    </div>
+                    <pre class="bg-slate-950 border border-slate-800 rounded-2xl p-5 text-slate-200 font-mono text-sm whitespace-pre-wrap leading-relaxed max-h-96 overflow-y-auto select-all">${escapeHTML(cmd.text)}</pre>
+                </div>
+
+                ${attachmentHTML}
+
+                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-800">
+                    <button onclick="closeViewModal(); editCommand('${cmd.id}')" class="px-5 py-2.5 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 font-bold text-sm transition-colors">
+                        <i class="fa-solid fa-pen ml-1"></i> تعديل
+                    </button>
+                    <button onclick="closeViewModal()" class="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm transition-colors">
+                        إغلاق
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('viewModalContent').innerHTML = content;
+            const modal = document.getElementById('viewModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeViewModal = function() {
+            const modal = document.getElementById('viewModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        // حماية النصوص من حقن الأكواد
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        // بدء التشغيل
+        initAuthAndData();
+    </script>
+</body>
+</html>
