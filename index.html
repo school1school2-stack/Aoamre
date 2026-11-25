@@ -344,6 +344,7 @@
     <!-- سكربت Firebase والمنطق البرمجي للتطبيق -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // إعدادات مشروعك السحابي المباشرة للمزامنة الفورية عبر جميع الأجهزة
@@ -359,125 +360,107 @@
 
         const appId = 'aoamre-vault-app';
 
-        // تشغيل التطبيق وقاعدة البيانات
+        // تشغيل التطبيق وقاعدة البيانات والمصادقة
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
 
         // متغيرات الحالة
         let isConnected = false;
+        let unsubscribeSnapshot = null;
         let allCommands = [];
-        let currentFileBase64 = null;
-        let currentFileName = null;
-        let currentFileType = null;
+        let currentAttachment = null;
         let commandToDeleteId = null;
-
-        // دالة تنسيق التاريخ والوقت باللغة العربية
-        function getFormattedDateTime() {
-            const now = new Date();
-            const dateStr = now.toLocaleDateString('ar-SA', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
-            const timeStr = now.toLocaleTimeString('ar-SA', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            return `${dateStr} - ${timeStr}`;
-        }
-
-        // دالة حماية النصوص من حقن الأكواد (XSS)
-        function escapeHTML(str) {
-            if (!str) return '';
-            return str
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
-
-        // دالة إظهار الإشعارات
-        window.showToast = function(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            const icon = document.getElementById('toastIcon');
-            const msg = document.getElementById('toastMessage');
-
-            msg.textContent = message;
-            if (type === 'error') {
-                icon.className = 'fa-solid fa-circle-exclamation text-rose-400 text-lg';
-            } else {
-                icon.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
-            }
-
-            toast.classList.remove('translate-y-24', 'opacity-0');
-            setTimeout(() => {
-                toast.classList.add('translate-y-24', 'opacity-0');
-            }, 3500);
-        };
 
         // تحديث حالة الاتصال في الواجهة
         function updateConnectionUI(connected, text) {
             isConnected = connected;
             const dot = document.getElementById('statusDot');
             const statusText = document.getElementById('statusText');
-            statusText.textContent = text;
             if (connected) {
-                dot.className = 'w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]';
+                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50";
+                statusText.className = "text-emerald-400 font-semibold";
             } else {
-                dot.className = 'w-2 h-2 rounded-full bg-rose-500';
+                dot.className = "w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping";
+                statusText.className = "text-rose-400 font-semibold";
             }
+            statusText.textContent = text;
         }
 
-        // الاستماع الفوري للتغييرات في قاعدة البيانات السحابية
+        // الاستماع الفوري للتغييرات من السحابة
         function listenToCommands() {
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
             const commandsRef = collection(db, 'artifacts', appId, 'public', 'data', 'commands');
 
-            onSnapshot(commandsRef, (snapshot) => {
-                updateConnectionUI(true, "متزامن سحابياً عبر جميع أجهزتك");
+            unsubscribeSnapshot = onSnapshot(commandsRef, (snapshot) => {
+                updateConnectionUI(true, "متصل بالسحابة ومتزامن");
                 allCommands = [];
                 snapshot.forEach((docSnap) => {
                     allCommands.push({ id: docSnap.id, ...docSnap.data() });
                 });
 
-                // ترتيب الأوامر من الأحدث للأقدم
+                // ترتيب الأوامر من الأحدث إلى الأقدم
                 allCommands.sort((a, b) => (b.createdAtTimestamp || 0) - (a.createdAtTimestamp || 0));
 
                 populateDropdown();
-                filterCommands();
-
-                // تحديث البطاقة المحددة في حال كانت مفتوحة وتم تعديلها
-                const dropdownVal = document.getElementById('quickCommandDropdown').value;
-                if (dropdownVal !== 'ALL') {
-                    handleDropdownSelect(dropdownVal);
+                const currentDropdownVal = document.getElementById('quickCommandDropdown').value;
+                if (currentDropdownVal !== 'ALL') {
+                    handleDropdownSelect(currentDropdownVal);
+                } else {
+                    filterCommands();
                 }
             }, (error) => {
-                console.error("Firestore Sync Error:", error);
-                updateConnectionUI(false, "تعذر المزامنة (تحقق من Rules)");
-                showToast("تأكد من نشر قاعدة السماح بالقراءة والكتابة (allow read, write: if true;) في Firebase.", "error");
+                console.error("Firestore Error:", error);
+                if (error.code === 'permission-denied') {
+                    updateConnectionUI(false, "مرفوض: عدّل Rules إلى true واضغط Publish");
+                } else {
+                    updateConnectionUI(false, "تعذر الاتصال بالسحابة");
+                }
             });
         }
 
-        // تعبئة القائمة المنسدلة للأوامر
+        // تهيئة الاتصال والمصادقة المرنة
+        async function initCloudSync() {
+            try {
+                // محاولة تسجيل الدخول المجهول في حال كانت القواعد تتطلب مصادقة، وإلا المتابعة مباشرة
+                await signInAnonymously(auth).catch(() => null);
+            } finally {
+                listenToCommands();
+            }
+        }
+
+        // تنسيق التاريخ والوقت بالعربية
+        function formatDateTime(timestamp) {
+            if (!timestamp) return "الآن";
+            const date = new Date(timestamp);
+            return new Intl.DateTimeFormat('ar-SA', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).format(date);
+        }
+
+        // تعبئة القائمة المنسدلة السريعة
         function populateDropdown() {
             const dropdown = document.getElementById('quickCommandDropdown');
             const currentVal = dropdown.value;
-            dropdown.innerHTML = '<option value="ALL">📂 عرض جميع البطاقات المحفوظة (الكل)</option>';
-
+            dropdown.innerHTML = `<option value="ALL">📂 عرض جميع البطاقات المحفوظة (${allCommands.length})</option>`;
+            
             allCommands.forEach(cmd => {
                 const option = document.createElement('option');
                 option.value = cmd.id;
-                const catLabel = cmd.category ? ` [${cmd.category}]` : '';
-                option.textContent = `⚡ ${cmd.name}${catLabel}`;
+                option.textContent = `⚡ ${cmd.name} ${cmd.category ? `[${cmd.category}]` : ''}`;
                 dropdown.appendChild(option);
             });
 
-            if (Array.from(dropdown.options).some(opt => opt.value === currentVal)) {
+            if (allCommands.some(c => c.id === currentVal)) {
                 dropdown.value = currentVal;
             }
         }
 
-        // التعامل مع اختيار أمر من القائمة المنسدلة
+        // عند اختيار أمر من القائمة المنسدلة
         window.handleDropdownSelect = function(selectedId) {
             const focusedContainer = document.getElementById('focusedCardContainer');
             const focusedSlot = document.getElementById('focusedCardSlot');
@@ -492,14 +475,13 @@
 
             const cmd = allCommands.find(c => c.id === selectedId);
             if (cmd) {
-                focusedSlot.innerHTML = createCardHTML(cmd, true);
-                focusedContainer.classList.remove('hidden');
                 cardsGrid.classList.add('hidden');
-                document.getElementById('emptyState').classList.add('hidden');
+                focusedContainer.classList.remove('hidden');
+                focusedSlot.innerHTML = createCardHTML(cmd, true);
             }
         };
 
-        // إعادة تعيين الاختيار لعرض كل البطاقات
+        // إعادة عرض كل البطاقات
         window.resetSelection = function() {
             document.getElementById('quickCommandDropdown').value = 'ALL';
             handleDropdownSelect('ALL');
@@ -507,121 +489,351 @@
 
         // فلترة البطاقات حسب البحث واللون
         window.filterCommands = function() {
-            const dropdownVal = document.getElementById('quickCommandDropdown').value;
-            if (dropdownVal !== 'ALL') return;
-
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
-            const colorVal = document.getElementById('colorFilter').value;
-
-            const filtered = allCommands.filter(cmd => {
-                const matchesSearch =
-                    (cmd.name && cmd.name.toLowerCase().includes(searchTerm)) ||
-                    (cmd.text && cmd.text.toLowerCase().includes(searchTerm)) ||
-                    (cmd.category && cmd.category.toLowerCase().includes(searchTerm));
-
-                const matchesColor = colorVal === 'ALL' || cmd.theme === colorVal;
-                return matchesSearch && matchesColor;
-            });
-
-            renderCards(filtered);
-        };
-
-        // رسم البطاقات في الشبكة
-        function renderCards(commands) {
-            const grid = document.getElementById('cardsGrid');
+            const searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+            const colorFilter = document.getElementById('colorFilter').value;
+            const cardsGrid = document.getElementById('cardsGrid');
             const emptyState = document.getElementById('emptyState');
 
-            if (commands.length === 0) {
-                grid.innerHTML = '';
-                emptyState.classList.remove('hidden');
+            if (document.getElementById('quickCommandDropdown').value !== 'ALL') {
+                resetSelection();
                 return;
             }
 
-            emptyState.classList.add('hidden');
-            grid.innerHTML = commands.map(cmd => createCardHTML(cmd, false)).join('');
-        }
+            const filtered = allCommands.filter(cmd => {
+                const matchesSearch = 
+                    (cmd.name && cmd.name.toLowerCase().includes(searchQuery)) ||
+                    (cmd.text && cmd.text.toLowerCase().includes(searchQuery)) ||
+                    (cmd.category && cmd.category.toLowerCase().includes(searchQuery));
+                
+                const matchesColor = colorFilter === 'ALL' || cmd.theme === colorFilter;
+                return matchesSearch && matchesColor;
+            });
 
-        // توليد كود HTML لبطاقة واحدة
+            if (filtered.length === 0) {
+                cardsGrid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                cardsGrid.innerHTML = filtered.map(cmd => createCardHTML(cmd, false)).join('');
+            }
+        };
+
+        // بناء كود HTML للبطاقة الواحدة
         function createCardHTML(cmd, isFocused = false) {
             const theme = cmd.theme || 'purple';
-            const badgeClass = `badge-${theme}`;
-            const themeClass = `theme-${theme}`;
-            const isImage = cmd.fileData && cmd.fileType && cmd.fileType.startsWith('image/');
+            const categoryBadge = cmd.category 
+                ? `<span class="text-xs px-2.5 py-1 rounded-lg font-semibold badge-${theme}">${escapeHTML(cmd.category)}</span>` 
+                : '';
+
+            const attachmentBadge = cmd.attachment 
+                ? `<div class="mt-3 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <i class="fa-solid ${cmd.attachment.type.startsWith('image/') ? 'fa-image text-cyan-400' : 'fa-file-code text-amber-400'}"></i>
+                        <span class="text-xs text-slate-300 truncate">${escapeHTML(cmd.attachment.name)}</span>
+                    </div>
+                    <button onclick="viewCommandDetails('${cmd.id}')" class="text-xs text-purple-400 hover:text-purple-300 font-semibold whitespace-nowrap">
+                        معاينة الملف
+                    </button>
+                   </div>` 
+                : '';
+
+            const updatedInfo = cmd.updatedAtTimestamp 
+                ? `<span title="آخر تعديل"><i class="fa-solid fa-pen-to-square text-amber-400/80 ml-1"></i>عُدّل: ${formatDateTime(cmd.updatedAtTimestamp)}</span>` 
+                : '';
+
+            return `
+                <div class="glass-card theme-${theme} rounded-2xl p-5 flex flex-col justify-between shadow-xl ${isFocused ? 'border-2 border-purple-500/50' : ''}">
+                    <div>
+                        <div class="flex items-start justify-between gap-2 mb-3">
+                            <h3 class="text-lg font-bold text-white leading-snug cursor-pointer hover:text-purple-300 transition-colors" onclick="viewCommandDetails('${cmd.id}')">
+                                ${escapeHTML(cmd.name)}
+                            </h3>
+                            ${categoryBadge}
+                        </div>
+
+                        <div class="relative group bg-slate-950/90 rounded-xl p-3.5 border border-slate-800/80 mb-3">
+                            <pre class="font-mono text-xs sm:text-sm text-slate-300 whitespace-pre-wrap break-words ${isFocused ? 'max-h-96' : 'line-clamp-4'} overflow-y-auto leading-relaxed">${escapeHTML(cmd.text)}</pre>
+                            <button onclick="copyCommandText('${cmd.id}')" title="نسخ الأمر" class="absolute top-2 left-2 bg-slate-800/90 hover:bg-purple-600 text-slate-200 hover:text-white p-2 rounded-lg text-xs transition-all shadow-md">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+
+                        ${attachmentBadge}
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-col gap-2">
+                        <div class="flex flex-wrap items-center justify-between text-[11px] text-slate-400 gap-1">
+                            <span><i class="fa-regular fa-clock text-emerald-400/80 ml-1"></i>أُضيف: ${formatDateTime(cmd.createdAtTimestamp)}</span>
+                            ${updatedInfo}
+                        </div>
+
+                        <div class="flex items-center justify-between pt-2">
+                            <button onclick="viewCommandDetails('${cmd.id}')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
+                                <i class="fa-solid fa-expand"></i> فتح البطاقة
+                            </button>
+                            <div class="flex items-center gap-1.5">
+                                <button onclick="copyCommandText('${cmd.id}')" class="p-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 transition-colors" title="نسخ">
+                                    <i class="fa-solid fa-copy"></i>
+                                </button>
+                                <button onclick="editCommand('${cmd.id}')" class="p-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors" title="تعديل">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <button onclick="promptDelete('${cmd.id}')" class="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-colors" title="حذف">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // فتح نافذة الإضافة أو التعديل
+        window.openModal = function(isEdit = false) {
+            const modal = document.getElementById('commandModal');
+            const title = document.getElementById('modalTitle');
+            if (!isEdit) {
+                document.getElementById('commandForm').reset();
+                document.getElementById('commandId').value = '';
+                clearSelectedFile();
+                title.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i><span>إضافة أمر جديد</span>`;
+            }
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeModal = function() {
+            const modal = document.getElementById('commandModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        // معالجة اختيار ملف كمثال
+        window.handleFileSelect = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (file.size > 800 * 1024) {
+                showToast("حجم الملف كبير جداً! الحد الأقصى 800 كيلوبايت", "error");
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentAttachment = {
+                    name: file.name,
+                    type: file.type || 'application/octet-stream',
+                    size: file.size,
+                    dataUrl: e.target.result
+                };
+                updateFilePreviewUI();
+            };
+            reader.readAsDataURL(file);
+        };
+
+        function updateFilePreviewUI() {
+            const nameDisplay = document.getElementById('fileNameDisplay');
+            const removeBtn = document.getElementById('removeFileBtn');
+            const previewContainer = document.getElementById('filePreviewContainer');
+
+            if (currentAttachment) {
+                nameDisplay.textContent = `${currentAttachment.name} (${(currentAttachment.size / 1024).toFixed(1)} KB)`;
+                nameDisplay.classList.add('text-emerald-400');
+                removeBtn.classList.remove('hidden');
+                previewContainer.classList.remove('hidden');
+
+                if (currentAttachment.type.startsWith('image/')) {
+                    previewContainer.innerHTML = `<img src="${currentAttachment.dataUrl}" class="max-h-40 rounded-xl border border-slate-700 object-contain">`;
+                } else {
+                    previewContainer.innerHTML = `<div class="p-3 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-300 flex items-center gap-2"><i class="fa-solid fa-file-circle-check text-emerald-400 text-base"></i> جاهز للإرفاق: ${escapeHTML(currentAttachment.name)}</div>`;
+                }
+            } else {
+                nameDisplay.textContent = "لم يتم اختيار ملف (الحد الأقصى 800 كيلوبايت)";
+                nameDisplay.classList.remove('text-emerald-400');
+                removeBtn.classList.add('hidden');
+                previewContainer.classList.add('hidden');
+                previewContainer.innerHTML = '';
+            }
+        }
+
+        window.clearSelectedFile = function() {
+            currentAttachment = null;
+            document.getElementById('cmdFile').value = '';
+            updateFilePreviewUI();
+        };
+
+        // حفظ الأمر (إضافة أو تعديل) في قاعدة البيانات السحابية
+        window.saveCommand = async function(event) {
+            event.preventDefault();
+            const saveBtn = document.getElementById('saveBtn');
+            const id = document.getElementById('commandId').value;
+            const name = document.getElementById('cmdName').value.trim();
+            const category = document.getElementById('cmdCategory').value.trim();
+            const text = document.getElementById('cmdText').value;
+            const theme = document.querySelector('input[name="cmdTheme"]:checked').value;
+
+            if (!name || !text) {
+                showToast("يرجى إدخال اسم الأمر ونصه", "error");
+                return;
+            }
+
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>جاري الحفظ...</span>`;
+
+            try {
+                const commandsRef = collection(db, 'artifacts', appId, 'public', 'data', 'commands');
+                const now = Date.now();
+
+                if (id) {
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'commands', id);
+                    await updateDoc(docRef, {
+                        name,
+                        category,
+                        text,
+                        theme,
+                        attachment: currentAttachment,
+                        updatedAtTimestamp: now
+                    });
+                    showToast("تم تحديث الأمر بنجاح!", "success");
+                } else {
+                    await addDoc(commandsRef, {
+                        name,
+                        category,
+                        text,
+                        theme,
+                        attachment: currentAttachment,
+                        createdAtTimestamp: now,
+                        updatedAtTimestamp: null
+                    });
+                    showToast("تمت إضافة الأمر وحفظه في السحابة!", "success");
+                }
+                closeModal();
+            } catch (error) {
+                console.error("Save Error:", error);
+                showToast("تعذر الحفظ: تأكد من تفعيل القواعد Rules في Firebase", "error");
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = `<i class="fa-solid fa-floppy-disk"></i> <span>حفظ الأمر</span>`;
+            }
+        };
+
+        // تعبئة النموذج لتعديل أمر موجود
+        window.editCommand = function(id) {
+            const cmd = allCommands.find(c => c.id === id);
+            if (!cmd) return;
+
+            document.getElementById('commandId').value = cmd.id;
+            document.getElementById('cmdName').value = cmd.name;
+            document.getElementById('cmdCategory').value = cmd.category || '';
+            document.getElementById('cmdText').value = cmd.text;
+            
+            const themeRadio = document.querySelector(`input[name="cmdTheme"][value="${cmd.theme || 'purple'}"]`);
+            if (themeRadio) themeRadio.checked = true;
+
+            currentAttachment = cmd.attachment || null;
+            updateFilePreviewUI();
+
+            document.getElementById('modalTitle').innerHTML = `<i class="fa-solid fa-pen-to-square text-amber-400"></i><span>تعديل الأمر</span>`;
+            openModal(true);
+        };
+
+        // عرض تفاصيل الأمر كاملة في نافذة منبثقة
+        window.viewCommandDetails = function(id) {
+            const cmd = allCommands.find(c => c.id === id);
+            if (!cmd) return;
+
+            const theme = cmd.theme || 'purple';
+            const modal = document.getElementById('viewModal');
+            const content = document.getElementById('viewModalContent');
 
             let attachmentHTML = '';
-            if (cmd.fileData) {
-                if (isImage) {
+            if (cmd.attachment) {
+                if (cmd.attachment.type.startsWith('image/')) {
                     attachmentHTML = `
-                        <div class="mt-3 rounded-xl overflow-hidden border border-slate-700/70 bg-slate-950/60">
-                            <img src="${cmd.fileData}" alt="${escapeHTML(cmd.fileName)}" class="w-full ${isFocused ? 'max-h-72 object-contain' : 'h-32 object-cover'}">
-                            <div class="px-3 py-1.5 bg-slate-900/90 flex items-center justify-between text-xs text-slate-400">
-                                <span class="truncate"><i class="fa-regular fa-image text-purple-400 ml-1"></i> ${escapeHTML(cmd.fileName)}</span>
-                                <a href="${cmd.fileData}" download="${escapeHTML(cmd.fileName)}" class="text-cyan-400 hover:text-cyan-300 font-semibold">تحميل</a>
+                        <div class="mt-5">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-bold text-slate-300"><i class="fa-solid fa-image text-cyan-400 ml-1"></i> ملف المثال المرفق (${escapeHTML(cmd.attachment.name)})</span>
+                                <a href="${cmd.attachment.dataUrl}" download="${escapeHTML(cmd.attachment.name)}" class="text-xs bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1.5 rounded-lg font-semibold transition-colors">
+                                    <i class="fa-solid fa-download ml-1"></i> تحميل الصورة
+                                </a>
+                            </div>
+                            <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800 flex justify-center">
+                                <img src="${cmd.attachment.dataUrl}" class="max-h-80 rounded-xl object-contain">
                             </div>
                         </div>
                     `;
                 } else {
                     attachmentHTML = `
-                        <div class="mt-3 px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-700/70 flex items-center justify-between text-xs">
-                            <span class="text-slate-300 truncate flex items-center gap-2">
-                                <i class="fa-solid fa-file-code text-cyan-400 text-base"></i>
-                                <span class="truncate max-w-[160px]">${escapeHTML(cmd.fileName || 'ملف مرفق')}</span>
-                            </span>
-                            <a href="${cmd.fileData}" download="${escapeHTML(cmd.fileName || 'example-file')}" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-semibold transition-colors">
-                                <i class="fa-solid fa-download ml-1"></i> تحميل
+                        <div class="mt-5 p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                                    <i class="fa-solid fa-file-code text-lg"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold text-white">${escapeHTML(cmd.attachment.name)}</p>
+                                    <p class="text-xs text-slate-400">${(cmd.attachment.size / 1024).toFixed(1)} KB</p>
+                                </div>
+                            </div>
+                            <a href="${cmd.attachment.dataUrl}" download="${escapeHTML(cmd.attachment.name)}" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors">
+                                <i class="fa-solid fa-download ml-1"></i> تحميل الملف
                             </a>
                         </div>
                     `;
                 }
             }
 
-            return `
-                <div class="glass-card ${themeClass} rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+            content.innerHTML = `
+                <div class="flex items-start justify-between border-b border-slate-800 pb-4 mb-5">
                     <div>
-                        <!-- رأس البطاقة -->
-                        <div class="flex items-start justify-between gap-2 mb-3">
-                            <div>
-                                <h3 class="text-lg font-bold text-white leading-snug">${escapeHTML(cmd.name)}</h3>
-                                ${cmd.category ? `<span class="inline-block mt-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-lg ${badgeClass}">${escapeHTML(cmd.category)}</span>` : ''}
-                            </div>
-                            <div class="flex items-center gap-1.5 shrink-0">
-                                <button onclick="openViewModal('${cmd.id}')" title="عرض التفاصيل كاملة" class="w-8 h-8 rounded-lg bg-slate-800/90 hover:bg-purple-500/20 text-slate-300 hover:text-purple-300 flex items-center justify-center transition-colors">
-                                    <i class="fa-solid fa-expand text-xs"></i>
-                                </button>
-                                <button onclick="editCommand('${cmd.id}')" title="تعديل" class="w-8 h-8 rounded-lg bg-slate-800/90 hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 flex items-center justify-center transition-colors">
-                                    <i class="fa-solid fa-pen text-xs"></i>
-                                </button>
-                                <button onclick="promptDelete('${cmd.id}')" title="حذف" class="w-8 h-8 rounded-lg bg-slate-800/90 hover:bg-rose-500/20 text-slate-300 hover:text-rose-400 flex items-center justify-center transition-colors">
-                                    <i class="fa-solid fa-trash text-xs"></i>
-                                </button>
-                            </div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <h2 class="text-2xl font-black text-white">${escapeHTML(cmd.name)}</h2>
+                            ${cmd.category ? `<span class="text-xs px-2.5 py-1 rounded-lg font-semibold badge-${theme}">${escapeHTML(cmd.category)}</span>` : ''}
                         </div>
-
-                        <!-- نص الأمر -->
-                        <div class="relative group mt-2">
-                            <pre class="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 text-slate-200 font-mono text-xs sm:text-sm overflow-x-auto ${isFocused ? 'max-h-96' : 'max-h-36'} whitespace-pre-wrap break-words leading-relaxed">${escapeHTML(cmd.text)}</pre>
-                            <button onclick="copyCommandText('${cmd.id}')" class="absolute top-2 left-2 px-2.5 py-1.5 rounded-lg bg-slate-800/95 hover:bg-purple-600 text-xs text-white font-semibold shadow-md transition-all flex items-center gap-1">
-                                <i class="fa-regular fa-copy"></i> نسخ
-                            </button>
+                        <div class="flex flex-wrap gap-4 text-xs text-slate-400 mt-2">
+                            <span><i class="fa-regular fa-calendar-plus text-emerald-400 ml-1"></i>تاريخ الإضافة: ${formatDateTime(cmd.createdAtTimestamp)}</span>
+                            ${cmd.updatedAtTimestamp ? `<span><i class="fa-regular fa-calendar-check text-amber-400 ml-1"></i>آخر تعديل: ${formatDateTime(cmd.updatedAtTimestamp)}</span>` : ''}
                         </div>
-
-                        <!-- المرفق إن وجد -->
-                        ${attachmentHTML}
                     </div>
+                    <button onclick="closeViewModal()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 flex items-center justify-center transition-colors">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
 
-                    <!-- تذييل البطاقة: التاريخ والوقت -->
-                    <div class="mt-4 pt-3 border-t border-slate-800/80 flex flex-col gap-1 text-[11px] text-slate-400">
-                        <div class="flex items-center justify-between">
-                            <span><i class="fa-regular fa-clock text-purple-400 ml-1"></i> أُضيف: ${escapeHTML(cmd.createdAtFormatted || 'غير متوفر')}</span>
-                        </div>
-                        ${cmd.updatedAtFormatted ? `
-                        <div class="flex items-center justify-between text-cyan-400/80">
-                            <span><i class="fa-solid fa-clock-rotate-left ml-1"></i> عُدّل: ${escapeHTML(cmd.updatedAtFormatted)}</span>
-                        </div>` : ''}
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-bold text-slate-300"><i class="fa-solid fa-code text-purple-400 ml-1"></i> نص الأمر الكامل</span>
+                        <button onclick="copyCommandText('${cmd.id}')" class="text-xs bg-purple-600 hover:bg-purple-500 text-white px-3.5 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5">
+                            <i class="fa-regular fa-copy"></i> نسخ النص
+                        </button>
                     </div>
+                    <pre class="bg-slate-950 border border-slate-800 rounded-2xl p-4 font-mono text-sm text-slate-200 whitespace-pre-wrap break-words max-h-80 overflow-y-auto leading-relaxed">${escapeHTML(cmd.text)}</pre>
+                </div>
+
+                ${attachmentHTML}
+
+                <div class="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-800">
+                    <button onclick="closeViewModal(); editCommand('${cmd.id}')" class="px-4 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-sm font-bold transition-colors">
+                        <i class="fa-solid fa-pen ml-1"></i> تعديل
+                    </button>
+                    <button onclick="closeViewModal(); promptDelete('${cmd.id}')" class="px-4 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-sm font-bold transition-colors">
+                        <i class="fa-solid fa-trash ml-1"></i> حذف
+                    </button>
+                    <button onclick="closeViewModal()" class="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold transition-colors">
+                        إغلاق
+                    </button>
                 </div>
             `;
-        }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeViewModal = function() {
+            const modal = document.getElementById('viewModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
 
         // نسخ نص الأمر إلى الحافظة
         window.copyCommandText = function(id) {
@@ -630,197 +842,29 @@
 
             const textarea = document.createElement('textarea');
             textarea.value = cmd.text;
-            textarea.style.position = 'fixed';
-            textarea.style.opacity = '0';
             document.body.appendChild(textarea);
             textarea.select();
             try {
                 document.execCommand('copy');
-                showToast('تم نسخ الأمر إلى الحافظة بنجاح!');
+                showToast("تم نسخ الأمر إلى الحافظة بنجاح!", "success");
             } catch (err) {
-                showToast('تعذر النسخ التلقائي، يرجى النسخ يدوياً', 'error');
+                showToast("تعذر النسخ التلقائي", "error");
             }
             document.body.removeChild(textarea);
         };
 
-        // لصق من الحافظة داخل حقل النص
+        // لصق من الحافظة في حقل الإدخال
         window.pasteFromClipboard = async function() {
             try {
-                if (navigator.clipboard && navigator.clipboard.readText) {
-                    const text = await navigator.clipboard.readText();
-                    document.getElementById('cmdText').value = text;
-                    showToast('تم لصق النص من الحافظة');
-                } else {
-                    document.getElementById('cmdText').focus();
-                    showToast('اضغط Ctrl+V أو اختر لصق داخل المربع', 'error');
-                }
+                const text = await navigator.clipboard.readText();
+                document.getElementById('cmdText').value = text;
+                showToast("تم لصق النص من الحافظة", "success");
             } catch (err) {
-                document.getElementById('cmdText').focus();
-                showToast('استخدم زر اللصق في لوحة المفاتيح داخل المربع', 'error');
+                showToast("يرجى استخدام Ctrl+V أو اللصق اليدوي داخل المربع", "error");
             }
         };
 
-        // معالجة اختيار ملف المثال
-        window.handleFileSelect = function(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            // التحقق من الحجم (حد 800 كيلوبايت لضمان التوافق مع حد مستند Firestore)
-            if (file.size > 800 * 1024) {
-                showToast('حجم الملف يتجاوز 800 كيلوبايت، يرجى اختيار ملف أصغر.', 'error');
-                event.target.value = '';
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                currentFileBase64 = e.target.result;
-                currentFileName = file.name;
-                currentFileType = file.type;
-                updateFilePreviewUI();
-            };
-            reader.readAsDataURL(file);
-        };
-
-        // تحديث واجهة معاينة الملف في النافذة
-        function updateFilePreviewUI() {
-            const nameDisplay = document.getElementById('fileNameDisplay');
-            const removeBtn = document.getElementById('removeFileBtn');
-            const previewContainer = document.getElementById('filePreviewContainer');
-
-            if (!currentFileBase64) {
-                nameDisplay.textContent = 'لم يتم اختيار ملف (الحد الأقصى 800 كيلوبايت)';
-                removeBtn.classList.add('hidden');
-                previewContainer.classList.add('hidden');
-                previewContainer.innerHTML = '';
-                return;
-            }
-
-            nameDisplay.textContent = currentFileName;
-            removeBtn.classList.remove('hidden');
-            previewContainer.classList.remove('hidden');
-
-            if (currentFileType && currentFileType.startsWith('image/')) {
-                previewContainer.innerHTML = `<img src="${currentFileBase64}" class="max-h-36 rounded-xl border border-slate-700 object-contain">`;
-            } else {
-                previewContainer.innerHTML = `
-                    <div class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-cyan-300">
-                        <i class="fa-solid fa-file-circle-check"></i> جاهز للإرفاق: ${escapeHTML(currentFileName)}
-                    </div>
-                `;
-            }
-        }
-
-        // مسح الملف المحدد
-        window.clearSelectedFile = function() {
-            currentFileBase64 = null;
-            currentFileName = null;
-            currentFileType = null;
-            document.getElementById('cmdFile').value = '';
-            updateFilePreviewUI();
-        };
-
-        // فتح نافذة الإضافة
-        window.openModal = function() {
-            document.getElementById('commandForm').reset();
-            document.getElementById('commandId').value = '';
-            document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> <span>إضافة أمر جديد</span>';
-            clearSelectedFile();
-            const modal = document.getElementById('commandModal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        };
-
-        // إغلاق نافذة الإضافة/التعديل
-        window.closeModal = function() {
-            const modal = document.getElementById('commandModal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        };
-
-        // فتح نافذة التعديل وتعبئة بيانات الأمر
-        window.editCommand = function(id) {
-            const cmd = allCommands.find(c => c.id === id);
-            if (!cmd) return;
-
-            document.getElementById('commandId').value = cmd.id;
-            document.getElementById('cmdName').value = cmd.name || '';
-            document.getElementById('cmdCategory').value = cmd.category || '';
-            document.getElementById('cmdText').value = cmd.text || '';
-
-            const themeRadio = document.querySelector(`input[name="cmdTheme"][value="${cmd.theme || 'purple'}"]`);
-            if (themeRadio) themeRadio.checked = true;
-
-            currentFileBase64 = cmd.fileData || null;
-            currentFileName = cmd.fileName || null;
-            currentFileType = cmd.fileType || null;
-            updateFilePreviewUI();
-
-            document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-cyan-400"></i> <span>تعديل الأمر</span>';
-            const modal = document.getElementById('commandModal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        };
-
-        // حفظ أو تحديث الأمر في Firestore
-        window.saveCommand = async function(event) {
-            event.preventDefault();
-            if (!isConnected) {
-                showToast('جاري الاتصال بالسحابة، تأكد من تفعيل Rules...', 'error');
-            }
-
-            const saveBtn = document.getElementById('saveBtn');
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>جاري الحفظ...</span>';
-
-            const id = document.getElementById('commandId').value;
-            const name = document.getElementById('cmdName').value.trim();
-            const category = document.getElementById('cmdCategory').value.trim();
-            const text = document.getElementById('cmdText').value;
-            const theme = document.querySelector('input[name="cmdTheme"]:checked').value;
-
-            const commandsRef = collection(db, 'artifacts', appId, 'public', 'data', 'commands');
-
-            try {
-                if (id) {
-                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'commands', id);
-                    await updateDoc(docRef, {
-                        name,
-                        category,
-                        text,
-                        theme,
-                        fileData: currentFileBase64,
-                        fileName: currentFileName,
-                        fileType: currentFileType,
-                        updatedAtFormatted: getFormattedDateTime(),
-                        updatedAtTimestamp: Date.now()
-                    });
-                    showToast('تم تحديث الأمر ومزامنته مع جميع أجهزتك!');
-                } else {
-                    await addDoc(commandsRef, {
-                        name,
-                        category,
-                        text,
-                        theme,
-                        fileData: currentFileBase64,
-                        fileName: currentFileName,
-                        fileType: currentFileType,
-                        createdAtFormatted: getFormattedDateTime(),
-                        createdAtTimestamp: Date.now()
-                    });
-                    showToast('تم حفظ الأمر ومزامنته مع السحابة!');
-                }
-                closeModal();
-            } catch (error) {
-                console.error("Save Error:", error);
-                showToast('حدث خطأ أثناء الحفظ. تأكد من نشر قواعد Firestore.', 'error');
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>حفظ الأمر</span>';
-            }
-        };
-
-        // نافذة تأكيد الحذف
+        // تأكيد الحذف
         window.promptDelete = function(id) {
             commandToDeleteId = id;
             const modal = document.getElementById('deleteConfirmModal');
@@ -837,108 +881,54 @@
 
         document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
             if (!commandToDeleteId) return;
-            const btn = document.getElementById('confirmDeleteBtn');
-            btn.disabled = true;
-            btn.textContent = 'جاري الحذف...';
+            const idToDelete = commandToDeleteId;
+            closeDeleteModal();
 
             try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'commands', commandToDeleteId);
-                await deleteDoc(docRef);
-                showToast('تم حذف الأمر من السحابة');
-                if (document.getElementById('quickCommandDropdown').value === commandToDeleteId) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'commands', idToDelete));
+                if (document.getElementById('quickCommandDropdown').value === idToDelete) {
                     resetSelection();
                 }
-                closeDeleteModal();
+                showToast("تم حذف الأمر نهائياً", "success");
             } catch (error) {
                 console.error("Delete Error:", error);
-                showToast('حدث خطأ أثناء الحذف', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'نعم، احذف الأمر';
+                showToast("حدث خطأ أثناء الحذف", "error");
             }
         });
 
-        // نافذة عرض كامل تفاصيل الأمر
-        window.openViewModal = function(id) {
-            const cmd = allCommands.find(c => c.id === id);
-            if (!cmd) return;
+        // عرض الإشعارات المنبثقة
+        function showToast(message, type = "success") {
+            const toast = document.getElementById('toast');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastMessage = document.getElementById('toastMessage');
 
-            const theme = cmd.theme || 'purple';
-            const badgeClass = `badge-${theme}`;
-            const isImage = cmd.fileData && cmd.fileType && cmd.fileType.startsWith('image/');
-
-            let attachmentSection = '';
-            if (cmd.fileData) {
-                attachmentSection = `
-                    <div class="mt-6">
-                        <h4 class="text-sm font-bold text-slate-300 mb-2"><i class="fa-solid fa-paperclip text-purple-400 ml-1"></i> ملف المثال المرفق</h4>
-                        ${isImage ? `
-                            <div class="rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 p-2">
-                                <img src="${cmd.fileData}" class="max-h-96 mx-auto rounded-xl object-contain">
-                            </div>
-                        ` : ''}
-                        <div class="mt-2 flex items-center justify-between bg-slate-950 border border-slate-800 rounded-xl p-3">
-                            <span class="text-sm text-slate-300 truncate">${escapeHTML(cmd.fileName || 'ملف مرفق')}</span>
-                            <a href="${cmd.fileData}" download="${escapeHTML(cmd.fileName || 'example')}" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-colors">
-                                <i class="fa-solid fa-download ml-1"></i> تحميل الملف
-                            </a>
-                        </div>
-                    </div>
-                `;
+            toastMessage.textContent = message;
+            if (type === "error") {
+                toastIcon.className = "fa-solid fa-circle-exclamation text-rose-400 text-lg";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-lg";
             }
 
-            document.getElementById('viewModalContent').innerHTML = `
-                <div class="flex items-start justify-between border-b border-slate-800 pb-4 mb-5">
-                    <div>
-                        <h2 class="text-2xl font-bold text-white">${escapeHTML(cmd.name)}</h2>
-                        ${cmd.category ? `<span class="inline-block mt-2 text-xs font-semibold px-3 py-1 rounded-lg ${badgeClass}">${escapeHTML(cmd.category)}</span>` : ''}
-                    </div>
-                    <button onclick="closeViewModal()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 flex items-center justify-center transition-colors">
-                        <i class="fa-solid fa-xmark text-lg"></i>
-                    </button>
-                </div>
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 3500);
+        }
 
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm font-bold text-slate-300">نص الأمر الكامل</span>
-                        <button onclick="copyCommandText('${cmd.id}')" class="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-1.5">
-                            <i class="fa-regular fa-copy"></i> نسخ النص
-                        </button>
-                    </div>
-                    <pre class="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-slate-100 font-mono text-sm whitespace-pre-wrap break-words max-h-96 overflow-y-auto leading-relaxed">${escapeHTML(cmd.text)}</pre>
-                </div>
-
-                ${attachmentSection}
-
-                <div class="mt-6 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
-                    <div class="space-y-1">
-                        <div><i class="fa-regular fa-clock text-purple-400 ml-1"></i> تاريخ الإضافة: ${escapeHTML(cmd.createdAtFormatted || 'غير متوفر')}</div>
-                        ${cmd.updatedAtFormatted ? `<div class="text-cyan-400"><i class="fa-solid fa-clock-rotate-left ml-1"></i> آخر تعديل: ${escapeHTML(cmd.updatedAtFormatted)}</div>` : ''}
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="closeViewModal(); editCommand('${cmd.id}')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-cyan-600 text-white font-semibold transition-colors">
-                            <i class="fa-solid fa-pen ml-1"></i> تعديل
-                        </button>
-                        <button onclick="closeViewModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition-colors">
-                            إغلاق
-                        </button>
-                    </div>
-                </div>
-            `;
-
-            const modal = document.getElementById('viewModal');
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        };
-
-        window.closeViewModal = function() {
-            const modal = document.getElementById('viewModal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        };
+        // حماية النصوص من حقن HTML
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag));
+        }
 
         // بدء التشغيل والمزامنة الفورية
-        listenToCommands();
+        initCloudSync();
     </script>
 </body>
 </html>
