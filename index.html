@@ -131,25 +131,6 @@
 
         .badge-amber { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
         html.dark .badge-amber { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.3); }
-
-        /* تنسيق الجدول الاحترافي المستوحى من الصورة */
-        .prompt-row {
-            transition: all 0.2s ease;
-        }
-        .prompt-row:hover {
-            background-color: rgba(249, 115, 22, 0.08);
-        }
-        html.dark .prompt-row:hover {
-            background-color: rgba(249, 115, 22, 0.15);
-        }
-        .prompt-row.active-row {
-            background-color: #ffedd5 !important;
-            border-right: 4px solid #ea580c;
-        }
-        html.dark .prompt-row.active-row {
-            background-color: rgba(234, 88, 12, 0.22) !important;
-            border-right: 4px solid #f97316;
-        }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen font-sans selection:bg-purple-500 selection:text-white overflow-x-hidden transition-colors duration-300">
@@ -264,23 +245,9 @@
             <div id="focusedCardSlot"></div>
         </div>
 
-        <!-- الجدول التفاعلي للأوامر بتصميم 3 أعمدة ملونة مثل الصورة -->
-        <main id="tableContainer" class="glass-panel rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-800 mb-8">
-            <div class="overflow-x-auto">
-                <table class="w-full text-right border-collapse">
-                    <thead>
-                        <tr class="text-white text-xs sm:text-sm font-black tracking-wide">
-                            <th class="py-3.5 px-3 bg-[#3f594a] text-center w-14 border-l border-white/15">#</th>
-                            <th class="py-3.5 px-4 bg-[#3f594a] border-l border-white/15 w-1/4">الأمر / الكود</th>
-                            <th class="py-3.5 px-4 bg-[#3a6b9c] border-l border-white/15 w-2/5">وظيفة الأمر (الوصف)</th>
-                            <th class="py-3.5 px-4 bg-[#c25934] w-1/3">مثال / المرفق</th>
-                        </tr>
-                    </thead>
-                    <tbody id="commandsTableBody" class="divide-y divide-slate-200/80 dark:divide-slate-800 text-xs sm:text-sm bg-white/95 dark:bg-slate-900/90">
-                        <!-- يتم توليد صفوف الأوامر هنا -->
-                    </tbody>
-                </table>
-            </div>
+        <!-- شبكة عرض البطاقات الملونة -->
+        <main id="cardsGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- يتم توليد البطاقات هنا ديناميكياً -->
         </main>
 
         <!-- حالة عدم وجود بيانات -->
@@ -595,10 +562,11 @@
             }
         }
 
-        // عند اختيار أمر من القائمة المنسدلة أو الضغط على صف في الجدول
+        // عند اختيار أمر من القائمة المنسدلة
         window.handleDropdownSelect = function(selectedId) {
             const focusedContainer = document.getElementById('focusedCardContainer');
             const focusedSlot = document.getElementById('focusedCardSlot');
+            const cardsGrid = document.getElementById('cardsGrid');
             const dropdown = document.getElementById('quickCommandDropdown');
 
             if (dropdown.value !== selectedId) {
@@ -607,6 +575,7 @@
 
             if (selectedId === 'ALL' || !selectedId) {
                 focusedContainer.classList.add('hidden');
+                cardsGrid.classList.remove('hidden');
                 filterCommands();
                 return;
             }
@@ -614,9 +583,9 @@
             const cmdIndex = allCommands.findIndex(c => c.id === selectedId);
             const cmd = allCommands[cmdIndex];
             if (cmd) {
+                cardsGrid.classList.add('hidden');
                 focusedContainer.classList.remove('hidden');
                 focusedSlot.innerHTML = createCardHTML(cmd, true, cmdIndex);
-                filterCommands();
                 focusedContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
         };
@@ -701,21 +670,23 @@
             `;
         }
 
-        // إعادة إغلاق البطاقة المحددة
+        // إعادة إغلاق البطاقة المحددة والعودة لعرض جميع البطاقات
         window.resetSelection = function() {
             document.getElementById('quickCommandDropdown').value = 'ALL';
             document.getElementById('focusedCardContainer').classList.add('hidden');
+            document.getElementById('cardsGrid').classList.remove('hidden');
             filterCommands();
         };
 
-        // فلترة وعرض الأوامر في الجدول
+        // فلترة وعرض الأوامر في شبكة البطاقات
         window.filterCommands = function() {
             const searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
             const colorFilter = document.getElementById('colorFilter').value;
-            const tableContainer = document.getElementById('tableContainer');
-            const tableBody = document.getElementById('commandsTableBody');
+            const cardsGrid = document.getElementById('cardsGrid');
             const emptyState = document.getElementById('emptyState');
             const selectedId = document.getElementById('quickCommandDropdown').value;
+
+            if (selectedId !== 'ALL') return;
 
             const filtered = allCommands.filter(cmd => {
                 const matchesSearch = 
@@ -730,55 +701,18 @@
             });
 
             if (filtered.length === 0) {
-                tableBody.innerHTML = '';
-                tableContainer.classList.add('hidden');
+                cardsGrid.innerHTML = '';
+                cardsGrid.classList.add('hidden');
                 emptyState.classList.remove('hidden');
             } else {
                 emptyState.classList.add('hidden');
-                tableContainer.classList.remove('hidden');
-                tableBody.innerHTML = filtered.map((cmd, idx) => createTableRowHTML(cmd, idx, cmd.id === selectedId)).join('');
+                cardsGrid.classList.remove('hidden');
+                cardsGrid.innerHTML = filtered.map((cmd) => {
+                    const originalIndex = allCommands.findIndex(c => c.id === cmd.id);
+                    return createCardHTML(cmd, false, originalIndex);
+                }).join('');
             }
         };
-
-        // بناء صف الجدول التفاعلي لكل أمر
-        function createTableRowHTML(cmd, index, isActive) {
-            const rowNum = index + 1;
-            const descriptionText = cmd.desc ? escapeHTML(cmd.desc) : escapeHTML(cmd.text.substring(0, 75)) + (cmd.text.length > 75 ? '...' : '');
-            const exampleText = cmd.example 
-                ? escapeHTML(cmd.example) 
-                : (cmd.attachment ? `<span class="text-purple-600 dark:text-purple-400 font-semibold"><i class="fa-solid fa-paperclip ml-1"></i>${escapeHTML(cmd.attachment.name)}</span>` : '<span class="text-slate-400">اضغط لعرض التفاصيل</span>');
-            
-            const badgeColor = isActive ? 'bg-[#c25934] text-white' : 'bg-[#2a3b4c] text-white';
-            const nameColor = isActive ? 'text-[#c25934] dark:text-orange-400' : 'text-slate-800 dark:text-slate-100';
-
-            return `
-                <tr onclick="handleDropdownSelect('${cmd.id}')" class="prompt-row cursor-pointer ${isActive ? 'active-row' : ''}">
-                    <td class="py-3 px-2 text-center border-l border-slate-200/70 dark:border-slate-800">
-                        <span class="inline-flex items-center justify-center w-7 h-6 rounded-md text-xs font-bold shadow-sm ${badgeColor}">${rowNum}</span>
-                    </td>
-                    <td class="py-3 px-4 font-bold ${nameColor} border-l border-slate-200/70 dark:border-slate-800">
-                        <div class="flex items-center justify-between gap-2">
-                            <span dir="auto">${escapeHTML(cmd.name)}</span>
-                            ${cmd.category ? `<span class="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-normal">${escapeHTML(cmd.category)}</span>` : ''}
-                        </div>
-                    </td>
-                    <td class="py-3 px-4 text-slate-600 dark:text-slate-300 border-l border-slate-200/70 dark:border-slate-800">
-                        ${descriptionText}
-                    </td>
-                    <td class="py-3 px-4 text-slate-600 dark:text-slate-300">
-                        <div class="flex items-center justify-between gap-2">
-                            <span class="truncate">${exampleText}</span>
-                            <div class="flex items-center gap-1 shrink-0" onclick="event.stopPropagation()">
-                                <button onclick="copyCommandText('${cmd.id}')" title="نسخ سريع" class="p-1.5 rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-purple-600 transition-colors">
-                                    <i class="fa-regular fa-copy"></i>
-                                </button>
-                                <i class="fa-solid fa-chevron-left text-xs text-slate-400 mr-1"></i>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }
 
         // فتح نافذة الإضافة أو التعديل
         window.openModal = function(isEdit = false) {
